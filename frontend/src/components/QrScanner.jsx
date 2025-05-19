@@ -15,6 +15,7 @@ const QRScanner = () => {
   const [gateNo, setGateNo] = useState("00");
   const srNumberRef = useRef(1);
   const [userIp, setUserIp] = useState("");
+  const [location, setLocation] = useState({ latitude: "", longitude: "" });
 
   useEffect(() => {
     // Fetch user IP address
@@ -23,6 +24,19 @@ const QRScanner = () => {
       .then((data) => setUserIp(data.ip))
       .catch((error) => console.error("Error fetching IP:", error));
 
+    // Get user's location coordinates
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => console.error("Geolocation error:", error.message)
+      );
+    }
+
     html5QrCodeRef.current = new Html5Qrcode(qrRegionId);
     let isMounted = true;
 
@@ -30,7 +44,7 @@ const QRScanner = () => {
       .then((devices) => {
         if (!isMounted) return;
         if (devices && devices.length) {
-          const cameraId = devices[devices.length -1].id;
+          const cameraId = devices[0].id;
           const config = { fps: 10, qrbox: 250 };
 
           setTimeout(() => {
@@ -42,7 +56,9 @@ const QRScanner = () => {
                   config,
                   (text) => {
                     if (text !== lastData) {
-                      const timestamp = new Date().toLocaleString();
+                      const now = new Date();
+                      const timestamp = `${String(now.getDate()).padStart(2, "0")}-${now.toLocaleString("en", { month: "short" })}-${String(now.getFullYear()).slice(-2)} ${now.toLocaleTimeString("en-GB")}`;
+
                       setScanned((prev) => [
                         ...prev,
                         {
@@ -52,6 +68,8 @@ const QRScanner = () => {
                           timestamp,
                           entryType,
                           ip: userIp,
+                          latitude: location.latitude,
+                          longitude: location.longitude,
                         },
                       ]);
                       setLastData(text);
@@ -88,7 +106,7 @@ const QRScanner = () => {
   const downloadCSV = () => {
     const csv = Papa.unparse(scanned);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    saveAs(blob, "qr_scans.csv");
+    saveAs(blob, "qr_scans_with_location.csv");
   };
 
   return (
@@ -96,6 +114,8 @@ const QRScanner = () => {
       <Navbar />
       <div className="flex-grow flex flex-col items-center p-6 bg-gray-100 overflow-auto">
         <h2 className="text-xl font-bold mb-4">QR Code Scanner</h2>
+
+        {/* Gate Number Selection */}
         <div className="mb-4">
           <label className="text-lg font-semibold mr-2">Select Gate Number:</label>
           <select value={gateNo} onChange={(e) => setGateNo(e.target.value)} className="p-2 border rounded">
@@ -106,6 +126,8 @@ const QRScanner = () => {
             ))}
           </select>
         </div>
+
+        {/* Entry Type Selection */}
         <div className="mb-4">
           <label className="text-lg font-semibold mr-2">Select Entry Type:</label>
           <select value={entryType} onChange={(e) => setEntryType(e.target.value)} className="p-2 border rounded">
@@ -113,7 +135,9 @@ const QRScanner = () => {
             <option value="OUT">OUT</option>
           </select>
         </div>
+
         <div id={qrRegionId} className="w-full max-w-sm bg-white p-4 rounded shadow" />
+
         {showPopup && (
           <div className="relative mt-4 bg-white p-4 rounded shadow">
             <h3 className="text-lg font-semibold">✅ Scan Successful</h3>
@@ -123,6 +147,8 @@ const QRScanner = () => {
             <p>Time: {scanned.at(-1)?.timestamp}</p>
             <p>Entry Type: {entryType}</p>
             <p>IP Address: {userIp}</p>
+            <p>Latitude: {location.latitude}</p>
+            <p>Longitude: {location.longitude}</p>
             <div className="mt-2 space-x-2 flex flex-col sm:flex-row">
               <button onClick={downloadCSV} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                 Download CSV
