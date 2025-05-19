@@ -16,35 +16,49 @@ const QRScanner = () => {
   const srNumberRef = useRef(1);
   const [userIp, setUserIp] = useState("");
   const [location, setLocation] = useState({ latitude: "", longitude: "" });
+  const [isLocationReady, setIsLocationReady] = useState(false);
 
   useEffect(() => {
-    // Fetch user IP address
-    fetch("https://api.ipify.org?format=json")
-      .then((response) => response.json())
-      .then((data) => setUserIp(data.ip))
-      .catch((error) => console.error("Error fetching IP:", error));
+    const fetchData = async () => {
+      try {
+        // Fetch user IP address
+        const ipResponse = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipResponse.json();
+        setUserIp(ipData.ip);
 
-    // Get user's location coordinates
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => console.error("Geolocation error:", error.message)
-      );
-    }
+        // Get user's location coordinates
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              setLocation({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              });
+              setIsLocationReady(true);
+            },
+            (error) => console.error("Geolocation error:", error.message)
+          );
+        } else {
+          setIsLocationReady(true);
+        }
+      } catch (error) {
+        console.error("Error fetching IP or location:", error);
+        setIsLocationReady(true);
+      }
+    };
 
+    fetchData();
+  }, []);
+
+  useEffect(() => {
     html5QrCodeRef.current = new Html5Qrcode(qrRegionId);
     let isMounted = true;
 
     Html5Qrcode.getCameras()
       .then((devices) => {
-        if (!isMounted) return;
-        if (devices && devices.length) {
-          const cameraId = devices[devices.length -1].id;
+        if (!isMounted || !isLocationReady) return;
+        if (devices.length) {
+          const cameraId = devices[devices.length - 1].id;
           const config = { fps: 10, qrbox: 250 };
 
           setTimeout(() => {
@@ -101,7 +115,7 @@ const QRScanner = () => {
           .catch((err) => console.warn("Stop error (likely safe):", err));
       }
     };
-  }, [lastData]);
+  }, [lastData, isLocationReady]);
 
   const downloadCSV = () => {
     const csv = Papa.unparse(scanned);
@@ -146,9 +160,9 @@ const QRScanner = () => {
             <p>Data: {lastData}</p>
             <p>Time: {scanned.at(-1)?.timestamp}</p>
             <p>Entry Type: {entryType}</p>
-            <p>IP Address: {userIp}</p>
-            <p>Latitude: {location.latitude}</p>
-            <p>Longitude: {location.longitude}</p>
+            <p>IP Address: {scanned.at(-1)?.ip}</p>
+            <p>Latitude: {scanned.at(-1)?.latitude}</p>
+            <p>Longitude: {scanned.at(-1)?.longitude}</p>
             <div className="mt-2 space-x-2 flex flex-col sm:flex-row">
               <button onClick={downloadCSV} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                 Download CSV
