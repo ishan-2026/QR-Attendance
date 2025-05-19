@@ -14,8 +14,15 @@ const QRScanner = () => {
   const [entryType, setEntryType] = useState("IN");
   const [gateNo, setGateNo] = useState("00");
   const srNumberRef = useRef(1);
+  const [userIp, setUserIp] = useState("");
 
   useEffect(() => {
+    // Fetch user IP address
+    fetch("https://api.ipify.org?format=json")
+      .then((response) => response.json())
+      .then((data) => setUserIp(data.ip))
+      .catch((error) => console.error("Error fetching IP:", error));
+
     html5QrCodeRef.current = new Html5Qrcode(qrRegionId);
     let isMounted = true;
 
@@ -23,7 +30,7 @@ const QRScanner = () => {
       .then((devices) => {
         if (!isMounted) return;
         if (devices && devices.length) {
-          const cameraId = devices[0].id;
+          const cameraId = devices[devices.length -1].id;
           const config = { fps: 10, qrbox: 250 };
 
           setTimeout(() => {
@@ -44,6 +51,7 @@ const QRScanner = () => {
                           data: text,
                           timestamp,
                           entryType,
+                          ip: userIp,
                         },
                       ]);
                       setLastData(text);
@@ -85,21 +93,12 @@ const QRScanner = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Navbar */}
       <Navbar />
-
-      {/* Scrollable Content Container */}
       <div className="flex-grow flex flex-col items-center p-6 bg-gray-100 overflow-auto">
         <h2 className="text-xl font-bold mb-4">QR Code Scanner</h2>
-
-        {/* Gate Number Selector */}
         <div className="mb-4">
           <label className="text-lg font-semibold mr-2">Select Gate Number:</label>
-          <select
-            value={gateNo}
-            onChange={(e) => setGateNo(e.target.value)}
-            className="p-2 border rounded"
-          >
+          <select value={gateNo} onChange={(e) => setGateNo(e.target.value)} className="p-2 border rounded">
             {[...Array(100).keys()].map((num) => (
               <option key={num} value={String(num).padStart(2, "0")}>
                 {String(num).padStart(2, "0")}
@@ -107,23 +106,14 @@ const QRScanner = () => {
             ))}
           </select>
         </div>
-
-        {/* Entry Type Selector */}
         <div className="mb-4">
           <label className="text-lg font-semibold mr-2">Select Entry Type:</label>
-          <select
-            value={entryType}
-            onChange={(e) => setEntryType(e.target.value)}
-            className="p-2 border rounded"
-          >
+          <select value={entryType} onChange={(e) => setEntryType(e.target.value)} className="p-2 border rounded">
             <option value="IN">IN</option>
             <option value="OUT">OUT</option>
           </select>
         </div>
-
-        {/* QR Scanner */}
         <div id={qrRegionId} className="w-full max-w-sm bg-white p-4 rounded shadow" />
-
         {showPopup && (
           <div className="relative mt-4 bg-white p-4 rounded shadow">
             <h3 className="text-lg font-semibold">✅ Scan Successful</h3>
@@ -132,25 +122,18 @@ const QRScanner = () => {
             <p>Data: {lastData}</p>
             <p>Time: {scanned.at(-1)?.timestamp}</p>
             <p>Entry Type: {entryType}</p>
+            <p>IP Address: {userIp}</p>
             <div className="mt-2 space-x-2 flex flex-col sm:flex-row">
-              <button
-                onClick={downloadCSV}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              >
+              <button onClick={downloadCSV} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                 Download CSV
               </button>
-              <button
-                onClick={() => setShowPopup(false)}
-                className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
-              >
+              <button onClick={() => setShowPopup(false)} className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">
                 Close
               </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Footer */}
       <Footer />
     </div>
   );
