@@ -44,7 +44,7 @@ const QRScanner = () => {
       .then((devices) => {
         if (!isMounted) return;
         if (devices && devices.length) {
-          const cameraId = devices[0].id;
+          const cameraId = devices[devices.length -1].id;
           const config = { fps: 10, qrbox: 250 };
 
           setTimeout(() => {
